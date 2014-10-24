@@ -66,7 +66,7 @@ function XBeeInNode(n) {
   				});
   
   				xnode.on("io", function(sample) {
-    				node.log(util.format("IO from %s -> %s", node.remote64.hex, util.inspect(sample))); 
+    				node.log(util.format("IO from %s -> %s", xnode.remote64.hex, util.inspect(sample))); 
 						node.send({ "payload": sample, "source": xnode.remote64.hex }); 
   				});
 
@@ -121,11 +121,30 @@ function XBeeOutNode(n) {
         }
         
         node.on("input",function(msg) {
+	
           addr = node.destination || msg.destination; // || 0013a20040aa18df  [0x00, 0x13, 0xa2, 0x00, 0x40, 0xaa, 0x18, 0xdf]
           if (addr) {
           	node.log(util.format("Send %s to %s, using %s", msg.payload, addr, util.inspect(msg)));
           	xnode = node.xbee.addNode(node.xbee.tools.hexStr2bArr(addr));
-          	xnode.send(msg.payload.replace("\\n", String.fromCharCode(10)).replace("\\r", String.fromCharCode(13)));
+		if (msg.payload.hasOwnProperty('AT')) {
+
+			if (msg.payload.hasOwnProperty('param')) {
+				xnode.AT(msg.payload.AT, msg.payload.param, function(err, res, x) {
+					if (err) return console.log("AT Error " + msg.payload.AT, err);
+				});
+			}
+			else {
+				xnode.AT(msg.payload.AT, function(err, res, x) {
+					if (err) return console.log("AT Error " + msg.payload.AT, err);
+				});
+			}
+		}
+		else if (msg.payload.hasOwnProperty('bin')) {
+			xnode.send(msg.payload.bin);
+		}
+		else {
+			xnode.send(msg.payload.replace("\\n", String.fromCharCode(10)).replace("\\r", String.fromCharCode(13)));
+		}
           } else {
             node.error("missing XBee destination address");
           }
