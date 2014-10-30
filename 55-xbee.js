@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * NR-XBee - Node-RED module to support use of XBee wireless modules
+ * NR-XBeeAPI - Node-RED module to support use of XBee wireless modules in API mode
+ *
+ * Based on NR-Xbee
  *
  * Highly inspired by Node-RED's own serial and mqtt modules. 
  * XBee interfacing is performed using the excellent svd-xbee node.js module and inherits 
@@ -24,7 +26,13 @@
 var util = require("util");
 var events = require("events");
 var RED = require("../../red/red");
-var XBee = require('svd-xbee').XBee;
+//var XBee = require('svd-xbee').XBee;
+var xbee_api = require('xbee-api');
+var XBee = new xbee_api.XBeeAPI({ 
+    api_mode:2
+});
+
+var C = XBee.constants;
 
 /**
  * XBeeInNode - Provides an inbound connection to an XBEE network through an XBee module 
@@ -46,6 +54,8 @@ function XBeeInNode(n) {
         try {
 		        node.log(util.format("Get XBee on %s:%s from pool...", this.serialConfig.serialport, this.serialConfig.serialbaud));
     
+
+            // CHANGE TO USE API -NL
             node.xbee = xbeePool.get(
               node.serialConfig.serialport,
             	node.serialConfig.serialbaud
@@ -57,6 +67,7 @@ function XBeeInNode(n) {
             return;
         }
         
+        // CHANGE TO USE API  -NL
 	      node.xbee.on("newNodeDiscovered", function(xnode) {
   				node.log(util.format("XBee node %s discovered", xnode.remote64.hex));
 
@@ -100,7 +111,7 @@ XBeeInNode.prototype.close = function() {
 function XBeeOutNode(n) {      
     RED.nodes.createNode(this,n);
     var node = this;
-    this.destination = n.destination;
+    this.destination64 = n.destination64;
     this.serial = n.serial;
     this.serialConfig = RED.nodes.getNode(this.serial);
         
@@ -109,6 +120,7 @@ function XBeeOutNode(n) {
         try {
 		        node.log(util.format("Get XBee on %s:%s from pool...", this.serialConfig.serialport, this.serialConfig.serialbaud));
     
+    // CHANGE to API -NL
             node.xbee = xbeePool.get(
               node.serialConfig.serialport,
             	node.serialConfig.serialbaud
@@ -122,32 +134,19 @@ function XBeeOutNode(n) {
         
         node.on("input",function(msg) {
 	
-          addr = node.destination || msg.destination; // || 0013a20040aa18df  [0x00, 0x13, 0xa2, 0x00, 0x40, 0xaa, 0x18, 0xdf]
-          if (addr) {
-          	node.log(util.format("Send %s to %s, using %s", msg.payload, addr, util.inspect(msg)));
-          	xnode = node.xbee.addNode(node.xbee.tools.hexStr2bArr(addr));
-		if (msg.payload.hasOwnProperty('AT')) {
-
-			if (msg.payload.hasOwnProperty('param')) {
-				xnode.AT(msg.payload.AT, msg.payload.param, function(err, res, x) {
-					if (err) return console.log("AT Error " + msg.payload.AT, err);
-				});
-			}
-			else {
-				xnode.AT(msg.payload.AT, function(err, res, x) {
-					if (err) return console.log("AT Error " + msg.payload.AT, err);
-				});
-			}
-		}
-		else if (msg.payload.hasOwnProperty('bin')) {
-			xnode.send(msg.payload.bin);
-		}
-		else {
-			xnode.send(msg.payload.replace("\\n", String.fromCharCode(10)).replace("\\r", String.fromCharCode(13)));
-		}
-          } else {
-            node.error("missing XBee destination address");
-          }
+            addr = node.destination || msg.payload.destination64; // || 0013a20040aa18df  [0x00, 0x13, 0xa2, 0x00, 0x40, 0xaa, 0x18, 0xdf]
+            if (addr) {
+              	node.log(util.format("Send %s to %s, using %s", msg.payload, addr, util.inspect(msg)));
+                // CHANGE TO API -NL
+              	//xnode = node.xbee.addNode(node.xbee.tools.hexStr2bArr(addr));
+                xnode = node.serial;
+        				
+        		xnode.send(Xbee.build_frame(msg.payload));
+        		
+            } 
+            else {
+                node.error("missing XBee destination address");
+            }
         });
 
     } else {
@@ -167,7 +166,7 @@ XBeeOutNode.prototype.close = function() {
 console.log("Registering xbee in node");
 RED.nodes.registerType("xbee in", XBeeInNode);
 
-RED.nodes.registerType("xbee out", XBeeOutNode);
+RED.nodes.registerType("xbee-api out", XBeeOutNode);
 
 
 /**
@@ -194,56 +193,12 @@ var xbeePool = function() {
                         write: function(m,cb) { this.serial.write(m,cb)},
                     }
                     var setupXBee = function() {
-                    	try { // ToDo : is try catch here actually necessary?
-		        						util.log(util.format("About to initialise the XBee on %s:%s...", port, baud));
-    
-						            obj.xbee = new XBee({
-            							port: port,
-            							baudrate: baud
-            						});
-            						
-        								obj.xbee.init();
-            
-						        	} catch(err) {
-						            // ToDo : Retry every 10 seconds 
-        								util.log(util.format("Failed to initialise XBee on %s", this.serialConfig.serialport));
-						            this.error(err);
-            						return;
-							        }
-
-											obj.xbee.on("initialized", function(params) {
-        								util.log(util.format("XBee initialised in pool -> %j", params));
-            						obj.xbee.discover();            
-											});
-
-
-//                      obj.xbee.on('error', function(err) {
-//                                util.log("[serial] serial port "+port+" error "+err);
-//                                obj.tout = setTimeout(function() {
-//                                        setupSerial();
-//                                },settings.serialReconnectTime);
-//                      });
-
-//                        obj.serial.on('close', function() {
-//                                if (!obj._closing) {
-//                                    util.log("[serial] serial port "+port+" closed unexpectedly");
-//                                    obj.tout = setTimeout(function() {
-//                                            setupSerial();
-//                                    },settings.serialReconnectTime);
-//                                }
-//                      });
-
-//                      obj.serial.on('open',function() {
-//                                util.log("[serial] serial port "+port+" opened at "+baud+" baud");
-//                                obj.serial.flush();
-//                                obj._emitter.emit('ready');
-//                      });
-
-//                      obj.serial.on('data',function(d) {
-//                                obj._emitter.emit('data',d);
-//                      });
-                      
-                    }
+                    	util.log(util.format("About to initialise the XBee on %s:%s...", port, baud));
+                        obj.xbee = XBee;
+                        obj.xbee.on("initialized", function(params) {
+            			util.log(util.format("XBee initialised in pool -> %j", params));
+                		//obj.xbee.discover();            
+					}
                     setupXBee();
                     return obj;
                 }();
