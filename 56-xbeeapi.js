@@ -23,71 +23,53 @@ module.exports = function(RED) {
     var util = require("util");
     var serialp = require("serialport");
     var bufMaxSize = 32768;  // Max serial buffer size, for inputs...
-    var xbeeApi = require("xbee-api");
+    var xbee_api = require("xbee-api");
 
-    // 25-serial.js comment
     // TODO: 'xbeePool' should be encapsulated in SerialPortNode
 
     function XbeeAPINode(n) {
         RED.nodes.createNode(this,n);
         this.serialport = n.serialport;
-        //this.newline = n.newline;
-        //this.addchar = n.addchar || "false";
         this.serialbaud = parseInt(n.serialbaud) || 9600;
-        this.databits = parseInt(n.databits) || 8;
-        this.parity = n.parity || "none";
-        this.stopbits = parseInt(n.stopbits) || 1;
-        this.bin = n.bin || "true";
-        //this.out = n.out || "char";
     }
-    RED.nodes.registerType("xbeeapi",XbeeAPINode);
+    RED.nodes.registerType("xbee-api",XbeeAPINode);
 
     function XbeeAPIOutNode(n) {
         RED.nodes.createNode(this,n);
         this.serial = n.serial;
         this.serialConfig = RED.nodes.getNode(this.serial);
-        this.xbee = n.xbee;
+        var C = xbee_api.constants;
 
         if (this.serialConfig) {
             var node = this;
-            node.port = xbeePool.get(this.serialConfig.serialport,
+            node.xbee = xbeePool.get(this.serialConfig.serialport,
                 this.serialConfig.serialbaud
-                //,
-                // this.serialConfig.databits,
-                // this.serialConfig.parity,
-                // this.serialConfig.stopbits,
-                // this.serialConfig.newline);
             );
-            // node.addCh = "";
-            // if (node.serialConfig.addchar == "true") {
-            //     node.addCh = this.serialConfig.newline.replace("\\n","\n").replace("\\r","\r").replace("\\t","\t").replace("\\e","\e").replace("\\f","\f").replace("\\0","\0");
-            // }
             node.on("input",function(msg) {
                 var payload = msg.payload;
                 if (!Buffer.isBuffer(payload)) {
                     // not buffer so buildFrame
-                    payload = this.xbee.buildFrame(payload);
-                    // if (typeof payload === "object") {
-                    //     payload = JSON.stringify(payload);
-                    // } else {
-                    //     payload = payload.toString();
-                    // }
-                    //payload += node.addCh;
+                    payload.type = C.FRAME_TYPE[payload.type];
+                    payload = node.xbee.xbee.buildFrame(payload);
+                    node.xbee.write(payload,function(err,res) {
+                        if (err) {
+                            node.error(err);
+                        }
+                    });
+                } else {
+                    // send direct if we receive a buffer
+                    node.xbee.write(payload, function(err, res) {
+                        if (err) {
+                            node.error(err);
+                        }
+                    })
                 }
-
-                // else if (node.addCh !== "") {
-                //     payload = Buffer.concat([payload,new Buffer(node.addCh)]);
-                // }
-                node.port.write(payload,function(err,res) {
-                    if (err) {
-                        node.error(err);
-                    }
-                });
             });
-            node.port.on('ready', function() {
+
+            node.xbee.on('ready', function() {
                 node.status({fill:"green",shape:"dot",text:"connected"});
             });
-            node.port.on('closed', function() {
+            node.xbee.on('closed', function() {
                 node.status({fill:"red",shape:"ring",text:"not connected"});
             });
         } else {
@@ -102,7 +84,7 @@ module.exports = function(RED) {
             }
         });
     }
-    RED.nodes.registerType("xbeeapi out",XbeeAPIOutNode);
+    RED.nodes.registerType("xbee-api out",XbeeAPIOutNode);
 
 
     function XbeeAPIInNode(n) {
@@ -117,15 +99,19 @@ module.exports = function(RED) {
             var buf;
             if (node.serialConfig.out != "count") { buf = new Buffer(bufMaxSize); }
             else { buf = new Buffer(Number(node.serialConfig.newline)); }
-            var i = 0;
+            //var i = 0;
             node.status({fill:"grey",shape:"dot",text:"unknown"});
             node.xbee = xbeePool.get(this.serialConfig.serialport,
                 this.serialConfig.serialbaud
             );
 
             this.xbee.on('data', function(msg) {
-                console.log("received xbee message: " + msg)
-                 node.send({"payload": msg});
+                console.log("received xbee message: " + JSON.stringify(msg));
+                var newMsg = {
+                    "source": msg.remote64,
+                    "payload": msg
+                }
+                node.send(newMsg);
             });
 
         } else {
@@ -140,8 +126,7 @@ module.exports = function(RED) {
             }
         });
     }
-    RED.nodes.registerType("xbeeapi in",XbeeAPIInNode);
-
+    RED.nodes.registerType("xbee-api in",XbeeAPIInNode);
 
     var xbeePool = function() {
         var connections = {};
@@ -158,16 +143,15 @@ module.exports = function(RED) {
                             xbee: null,
                             on: function(a,b) { this._emitter.on(a,b); },
                             close: function(cb) { this.serial.close(cb); },
-                            write: function(m,cb) { this.serial.write(m,cb); },
+                            write: function(m,cb) { this.serial.write(m,cb); }
                         }
                         var setupXbee = function() {
-                                obj.xbee = new xbeeApi.XBeeAPI({ 
+                                obj.xbee = new xbee_api.XBeeAPI({ 
                                     api_mode:2,
                                     module: "ZigBee"
                                 });
 
                                 obj.xbee.on('frame_object', function (frame) {
-                                    console.log("Xbee data received: " + JSON.stringify(frame));
                                     obj._emitter.emit('data',frame);
                                 });
 
@@ -232,7 +216,6 @@ module.exports = function(RED) {
 
     RED.httpAdmin.get("/xbeeports",function(req,res) {
         serialp.list(function (err, ports) {
-            //console.log(JSON.stringify(ports));
             res.writeHead(200, {'Content-Type': 'text/plain'});
             res.write(JSON.stringify(ports));
             res.end();

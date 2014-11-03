@@ -18,7 +18,7 @@
 
 -->
 
-<script type="text/x-red" data-template-name="xbeeapi in">
+<script type="text/x-red" data-template-name="xbee-api in">
     <div class="form-row node-input-serial">
         <label for="node-input-serial"><i class="icon-bullhorn"></i> Serial Port</label>
         <input type="text" id="node-input-serial">
@@ -34,7 +34,7 @@
 
 </script>
 
-<script type="text/x-red" data-help-name="xbeeapi in">
+<script type="text/x-red" data-help-name="xbee-api in">
 	<p>Provides an inbound connection to an XBEE network through an XBee module connected to this computer's serial port. </p>
 	<p>The address of the XBee module from which the message was originally sent is available in  <b>msg.source</b>.
 	Not sure yet what happens if it receives an IO packet!!
@@ -43,7 +43,7 @@
 </script>
 
 <script type="text/javascript">
-    RED.nodes.registerType('xbeeapi in',{
+    RED.nodes.registerType('xbee-api in',{
         category: 'input',
         defaults: {
 			name: {name:""},
@@ -64,7 +64,7 @@
 </script>
 
 
-<script type="text/x-red" data-template-name="xbeeapi out">
+<script type="text/x-red" data-template-name="xbee-api out">
     <div class="form-row node-input-serial">
         <label for="node-input-serial"><i class="icon-bullhorn"></i> Serial Port</label>
         <input type="text" id="node-input-serial">
@@ -85,7 +85,7 @@
 
 </script>
 
-<script type="text/x-red" data-help-name="xbeeapi out">
+<script type="text/x-red" data-help-name="xbee-api out">
 	<p>Provides an outbound connection to an XBEE network through an XBee module connected to this computer's serial port. </p>
 	<p>The address of the XBee module to send the message to can either be set in this node's configuration or passed as a parameter 
 	in <b>msg.destination64</b>. Only the <b>msg.payload</b> is sent to the destination XBee.</p>
@@ -93,7 +93,7 @@
 </script>
 
 <script type="text/javascript">
-    RED.nodes.registerType('xbeeapi out',{
+    RED.nodes.registerType('xbee-api out',{
         category: 'output',
         defaults: {
 			name: {name:""},
