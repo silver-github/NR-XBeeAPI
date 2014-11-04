@@ -46,23 +46,27 @@ module.exports = function(RED) {
                 this.serialConfig.serialbaud
             );
             node.on("input",function(msg) {
-                var payload = msg.payload;
-                if (!Buffer.isBuffer(payload)) {
-                    // not buffer so buildFrame
-                    payload.type = C.FRAME_TYPE[payload.type];
-                    payload = node.xbee.xbee.buildFrame(payload);
-                    node.xbee.write(payload,function(err,res) {
-                        if (err) {
-                            node.error(err);
-                        }
-                    });
-                } else {
-                    // send direct if we receive a buffer
-                    node.xbee.write(payload, function(err, res) {
-                        if (err) {
-                            node.error(err);
-                        }
-                    })
+                var addr = node.destination || msg.payload.destination64; // || 0013a20040aa18df  [0x00, 0x13, 0xa2, 0x00, 0x40, 0xaa, 0x18, 0xdf]
+                if (addr) {
+                    msg.payload.destination64 = addr;
+                    var payload = msg.payload;
+                    if (!Buffer.isBuffer(payload)) {
+                        // not buffer so buildFrame
+                        payload.type = C.FRAME_TYPE[payload.type];
+                        payload = node.xbee.xbee.buildFrame(payload);
+                        node.xbee.write(payload,function(err,res) {
+                            if (err) {
+                                node.error(err);
+                            }
+                        });
+                    } else {
+                        // send direct if we receive a buffer
+                        node.xbee.write(payload, function(err, res) {
+                            if (err) {
+                                node.error(err);
+                            }
+                        })
+                    }
                 }
             });
 
@@ -99,18 +103,13 @@ module.exports = function(RED) {
             var buf;
             if (node.serialConfig.out != "count") { buf = new Buffer(bufMaxSize); }
             else { buf = new Buffer(Number(node.serialConfig.newline)); }
-            //var i = 0;
             node.status({fill:"grey",shape:"dot",text:"unknown"});
             node.xbee = xbeePool.get(this.serialConfig.serialport,
                 this.serialConfig.serialbaud
             );
 
             this.xbee.on('data', function(msg) {
-                console.log("received xbee message: " + JSON.stringify(msg));
-                var newMsg = {
-                    "source": msg.remote64,
-                    "payload": msg
-                }
+                var newMsg = { "source": msg.remote64, "payload": msg };
                 node.send(newMsg);
             });
 
