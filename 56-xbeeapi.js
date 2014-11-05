@@ -180,6 +180,12 @@ module.exports = function(RED) {
                                 if (obj.tout) { clearTimeout(obj.tout); }
                                 //obj.serial.flush();
                                 obj._emitter.emit('ready');
+                                var frame = { 
+                                    "type": 0x08,
+                                    "command": "ND",
+                                    "commandParameter": []
+                                }
+                                obj.serial.write(obj.xbee.buildFrame(frame)); 
                             });
 
                             obj.serial.on("disconnect",function() {

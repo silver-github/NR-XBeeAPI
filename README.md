@@ -10,7 +10,7 @@ Status:
 Inbound and outbound messages working
 
 
-Pre-requesites
+Prerequisites
 --------------
 1. Node-RED's serial module must be enabled
 
@@ -19,12 +19,12 @@ Pre-requesites
     $ npm install xbee-api
 
 
-Example for sending a message using API mode:
+Example for sending a message to Xbee-api out node:
 
 ```
 // See Xbee-API docs for API definitions
 msg.payload = { 
-				// Set type to string containing frame_type
+				// Set type to frame_type string from xbee-api constants
 				type: "REMOTE_AT_COMMAND_REQUEST",
 		  		command: "D0",
 		  		destination64: "0013A2004052989C",
