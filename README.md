@@ -1,14 +1,35 @@
-NR-XBee
+NR-XBeeAPI
 =======
 
-Node-RED module to support use of XBee wireless modules.
-Right now this is an exact fork of freakent's [NR-XBee](https://github.com/freakent/NR-XBee).
-However, instead of [svd-xbee](https://github.com/jouz/svd-xbee), I'd like to use [xbee-api](https://github.com/jouz/svd-xbee) in the future.
+Node-RED module to support use of XBee wireless modules using xbee-api.
 
-Pre-requesites
+Based on Node-Red serial.js
+
+Status:
+
+Inbound and outbound messages working
+
+
+Prerequisites
 --------------
 1. Node-RED's serial module must be enabled
-1. Install xbee-api from npm
+
+2. Install xbee-api from npm
 
     $ npm install xbee-api
 
+
+Example for sending a message to Xbee-api out node:
+
+```
+// See Xbee-API docs for API definitions
+msg.payload = { 
+				// Set type to frame_type string from xbee-api constants
+				type: "REMOTE_AT_COMMAND_REQUEST",
+		  		command: "D0",
+		  		destination64: "0013A2004052989C",
+    			remoteCommandOptions: 0x02, 
+		  		commandParameter: [ ]
+		}; 
+return msg;
+```
