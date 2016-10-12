@@ -112,7 +112,14 @@ module.exports = function(RED) {
                 var newMsg = { "source": msg.remote64, "payload": msg };
                 node.send(newMsg);
             });
-
+			
+            node.xbee.on('ready', function() {
+                node.status({fill:"green",shape:"dot",text:"connected"});
+            });
+            node.xbee.on('closed', function() {
+                node.status({fill:"red",shape:"ring",text:"not connected"});
+            });
+			
         } else {
             this.error("missing serial config");
         }
@@ -189,7 +196,14 @@ module.exports = function(RED) {
                             });
 
                             obj.serial.on("disconnect",function() {
+								
+								// reconnect Serialport
+								obj.serial.open(function (err) {
+								  if (err) { util.log('Error opening port: ', err.message); }
+								});
+								
                                 util.log("[xbee] serial port "+port+" disconnected");
+								
                             });
                         }
                         setupXbee();
